@@ -15,74 +15,16 @@
 #include "asio.h"
 #include "asiodrivers.h"
 
-// name of the ASIO device to be used
-#if WINDOWS
-//	#define ASIO_DRIVER_NAME    "ASIO Multimedia Driver"
-	#define ASIO_DRIVER_NAME    "ASIO4ALL v2"
-#elif MAC
-//	#define ASIO_DRIVER_NAME   	"Apple Sound Manager"
-	#define ASIO_DRIVER_NAME   	"ASIO Sample"
-#endif
+#include <cmath>
+#include <limits>
 
-#define TEST_RUN_TIME  20.0		// run for 20 seconds
+#include "DriverInfo.h"
+
+#define ASIO_DRIVER_NAME    "ASIO4ALL v2"
+
+const float TEST_RUN_TIME = 20.0f;		// run for 20 seconds
 
 
-enum {
-	// number of input and outputs supported by the host application
-	// you can change these to higher or lower values
-	kMaxInputChannels = 32,
-	kMaxOutputChannels = 32
-};
-
-
-// internal data storage
-typedef struct DriverInfo
-{
-	// ASIOInit()
-	ASIODriverInfo driverInfo;
-
-	// ASIOGetChannels()
-	long           inputChannels;
-	long           outputChannels;
-
-	// ASIOGetBufferSize()
-	long           minSize;
-	long           maxSize;
-	long           preferredSize;
-	long           granularity;
-
-	// ASIOGetSampleRate()
-	ASIOSampleRate sampleRate;
-
-	// ASIOOutputReady()
-	bool           postOutput;
-
-	// ASIOGetLatencies ()
-	long           inputLatency;
-	long           outputLatency;
-
-	// ASIOCreateBuffers ()
-	long inputBuffers;	// becomes number of actual created input buffers
-	long outputBuffers;	// becomes number of actual created output buffers
-	ASIOBufferInfo bufferInfos[kMaxInputChannels + kMaxOutputChannels]; // buffer info's
-
-	// ASIOGetChannelInfo()
-	ASIOChannelInfo channelInfos[kMaxInputChannels + kMaxOutputChannels]; // channel info's
-	// The above two arrays share the same indexing, as the data in them are linked together
-
-	// Information from ASIOGetSamplePosition()
-	// data is converted to double floats for easier use, however 64 bit integer can be used, too
-	double         nanoSeconds;
-	double         samples;
-	double         tcSamples;	// time code samples
-
-	// bufferSwitchTimeInfo()
-	ASIOTime       tInfo;			// time info state
-	unsigned long  sysRefTime;      // system reference time, when bufferSwitch() was called
-
-	// Signal the end of processing in this example
-	bool           stopped;
-} DriverInfo;
 
 
 DriverInfo asioDriverInfo = {0};
@@ -170,6 +112,9 @@ long init_asio_static_data (DriverInfo *asioDriverInfo)
 	#define ASIO64toDouble(a)  ((a).lo + (a).hi * twoRaisedTo32)
 #endif
 
+
+int t = 0;
+
 ASIOTime *bufferSwitchTimeInfo(ASIOTime *timeInfo, long index, ASIOBool processNow)
 {	// the actual processing callback.
 	// Beware that this is normally in a seperate thread, hence be sure that you take care
@@ -213,6 +158,9 @@ ASIOTime *bufferSwitchTimeInfo(ASIOTime *timeInfo, long index, ASIOBool processN
 	// buffer size in samples
 	long buffSize = asioDriverInfo.preferredSize;
 
+	t += buffSize;
+	int tempT = t;
+
 	// perform the processing
 	for (int i = 0; i < asioDriverInfo.inputBuffers + asioDriverInfo.outputBuffers; i++)
 	{
@@ -220,59 +168,11 @@ ASIOTime *bufferSwitchTimeInfo(ASIOTime *timeInfo, long index, ASIOBool processN
 		{
 			// Check sampling bit
 			// std::cout << asioDriverInfo.channelInfos[i].type << std::endl;
+			int32_t* dist = static_cast<int32_t*>(asioDriverInfo.bufferInfos[i].buffers[index]);
 
-			// OK do processing for the outputs only
-			switch (asioDriverInfo.channelInfos[i].type)
-			{
-			case ASIOSTInt16LSB:
-				memset (asioDriverInfo.bufferInfos[i].buffers[index], 0, buffSize * 2);
-				break;
-			case ASIOSTInt24LSB:		// used for 20 bits as well
-				memset (asioDriverInfo.bufferInfos[i].buffers[index], 0, buffSize * 3);
-				break;
-			case ASIOSTInt32LSB:
-				memset (asioDriverInfo.bufferInfos[i].buffers[index], 0, buffSize * 4);
-				break;
-			case ASIOSTFloat32LSB:		// IEEE 754 32 bit float, as found on Intel x86 architecture
-				memset (asioDriverInfo.bufferInfos[i].buffers[index], 0, buffSize * 4);
-				break;
-			case ASIOSTFloat64LSB: 		// IEEE 754 64 bit double float, as found on Intel x86 architecture
-				memset (asioDriverInfo.bufferInfos[i].buffers[index], 0, buffSize * 8);
-				break;
-
-				// these are used for 32 bit data buffer, with different alignment of the data inside
-				// 32 bit PCI bus systems can more easily used with these
-			case ASIOSTInt32LSB16:		// 32 bit data with 18 bit alignment
-			case ASIOSTInt32LSB18:		// 32 bit data with 18 bit alignment
-			case ASIOSTInt32LSB20:		// 32 bit data with 20 bit alignment
-			case ASIOSTInt32LSB24:		// 32 bit data with 24 bit alignment
-				memset (asioDriverInfo.bufferInfos[i].buffers[index], 0, buffSize * 4);
-				break;
-
-			case ASIOSTInt16MSB:
-				memset (asioDriverInfo.bufferInfos[i].buffers[index], 0, buffSize * 2);
-				break;
-			case ASIOSTInt24MSB:		// used for 20 bits as well
-				memset (asioDriverInfo.bufferInfos[i].buffers[index], 0, buffSize * 3);
-				break;
-			case ASIOSTInt32MSB:
-				memset (asioDriverInfo.bufferInfos[i].buffers[index], 0, buffSize * 4);
-				break;
-			case ASIOSTFloat32MSB:		// IEEE 754 32 bit float, as found on Intel x86 architecture
-				memset (asioDriverInfo.bufferInfos[i].buffers[index], 0, buffSize * 4);
-				break;
-			case ASIOSTFloat64MSB: 		// IEEE 754 64 bit double float, as found on Intel x86 architecture
-				memset (asioDriverInfo.bufferInfos[i].buffers[index], 0, buffSize * 8);
-				break;
-
-				// these are used for 32 bit data buffer, with different alignment of the data inside
-				// 32 bit PCI bus systems can more easily used with these
-			case ASIOSTInt32MSB16:		// 32 bit data with 18 bit alignment
-			case ASIOSTInt32MSB18:		// 32 bit data with 18 bit alignment
-			case ASIOSTInt32MSB20:		// 32 bit data with 20 bit alignment
-			case ASIOSTInt32MSB24:		// 32 bit data with 24 bit alignment
-				memset (asioDriverInfo.bufferInfos[i].buffers[index], 0, buffSize * 4);
-				break;
+			memset (asioDriverInfo.bufferInfos[i].buffers[index], 0, buffSize * 4);
+			for (int i = 0; i < buffSize; ++i) {
+				*(dist++) = (INT32_MAX / 2) * std::sin((float)tempT++ / 10.0f);
 			}
 		}
 	}
