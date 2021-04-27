@@ -10,6 +10,7 @@ workspace "SimpleAsioApp"
 
 outputdir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
 
+-- Build ASIO Driver as a Static Link Library
 project "Asio"
 	location "Asio"
 	kind "StaticLib"
@@ -17,6 +18,7 @@ project "Asio"
 	cppdialect "C++17"
 	staticruntime "on"
 
+	-- Character set must be MBCS (multi-byte) style...
 	characterset ("MBCS")
 
 	targetdir ("bin/" .. outputdir .. "/%{prj.name}")
@@ -40,11 +42,6 @@ project "Asio"
 		{
 			"_CRT_SECURE_NO_WARNINGS"
 		}
-
-	filter "configurations:Debug"
-		defines "RELEASE"
-		runtime "Debug"
-		symbols "on"
 
 	filter "configurations:Release"
 		defines "RELEASE"
