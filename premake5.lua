@@ -71,7 +71,8 @@ project "Sandbox"
 
 	links
 	{
-		"Asio"
+		"Asio",
+		"winmm.lib"
 	}
 
 	filter "system:windows"
