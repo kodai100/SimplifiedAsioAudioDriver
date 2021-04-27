@@ -8,6 +8,7 @@
 //       not have a valid Application Window handle, which is used as sysRef
 //       on the Windows platform.
 
+#include <iostream>
 #include <stdio.h>
 #include <string.h>
 #include "asiosys.h"
@@ -17,7 +18,7 @@
 // name of the ASIO device to be used
 #if WINDOWS
 //	#define ASIO_DRIVER_NAME    "ASIO Multimedia Driver"
-	#define ASIO_DRIVER_NAME    "ASIO Sample"
+	#define ASIO_DRIVER_NAME    "ASIO4ALL v2"
 #elif MAC
 //	#define ASIO_DRIVER_NAME   	"Apple Sound Manager"
 	#define ASIO_DRIVER_NAME   	"ASIO Sample"
@@ -217,6 +218,8 @@ ASIOTime *bufferSwitchTimeInfo(ASIOTime *timeInfo, long index, ASIOBool processN
 	{
 		if (asioDriverInfo.bufferInfos[i].isInput == false)
 		{
+			// Check sampling bit
+			// std::cout << asioDriverInfo.channelInfos[i].type << std::endl;
 
 			// OK do processing for the outputs only
 			switch (asioDriverInfo.channelInfos[i].type)
